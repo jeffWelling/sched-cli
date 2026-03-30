@@ -2,15 +2,19 @@ package auth
 
 import (
 	"bytes"
+	"database/sql"
 	"fmt"
 	"io"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/jeff/sched-cli/internal/client"
 	"github.com/jeff/sched-cli/internal/config"
+	_ "modernc.org/sqlite"
 )
 
 func mockLoginSuccess(email, password string) (*client.CookieSet, error) {
@@ -446,5 +450,132 @@ func TestBrowserLoopback_ParsesCookieString(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+// --- Firefox cookie reader tests ---
+
+// createTestCookieDB creates a temporary SQLite database with the moz_cookies
+// schema and inserts the provided cookie rows. Returns the path to the database.
+func createTestCookieDB(t *testing.T, cookies []struct {
+	name, value, host string
+}) string {
+	t.Helper()
+
+	dir := t.TempDir()
+	dbPath := filepath.Join(dir, "cookies.sqlite")
+
+	db, err := sql.Open("sqlite", dbPath)
+	if err != nil {
+		t.Fatalf("opening test db: %v", err)
+	}
+	defer db.Close()
+
+	_, err = db.Exec(`CREATE TABLE moz_cookies (
+		id INTEGER PRIMARY KEY,
+		name TEXT,
+		value TEXT,
+		host TEXT,
+		path TEXT,
+		expiry INTEGER,
+		isSecure INTEGER,
+		isHttpOnly INTEGER
+	)`)
+	if err != nil {
+		t.Fatalf("creating moz_cookies table: %v", err)
+	}
+
+	for _, c := range cookies {
+		_, err := db.Exec(
+			`INSERT INTO moz_cookies (name, value, host, path, expiry, isSecure, isHttpOnly)
+			 VALUES (?, ?, ?, '/', 9999999999, 1, 0)`,
+			c.name, c.value, c.host,
+		)
+		if err != nil {
+			t.Fatalf("inserting cookie %q: %v", c.name, err)
+		}
+	}
+
+	return dbPath
+}
+
+func TestFirefoxCookieRead_FindsToken(t *testing.T) {
+	dbPath := createTestCookieDB(t, []struct{ name, value, host string }{
+		{"token", "ff-token-abc123", ".sched.com"},
+		{"ucontext", "ff-ucontext-xyz", ".sched.com"},
+		{"other_cookie", "irrelevant", ".sched.com"},
+		{"token", "wrong-site-token", ".example.com"},
+	})
+
+	result, err := readFirefoxCookies(dbPath)
+	if err != nil {
+		t.Fatalf("expected no error, got: %v", err)
+	}
+
+	if result.Token != "ff-token-abc123" {
+		t.Errorf("expected token 'ff-token-abc123', got '%s'", result.Token)
+	}
+	if result.UContext != "ff-ucontext-xyz" {
+		t.Errorf("expected ucontext 'ff-ucontext-xyz', got '%s'", result.UContext)
+	}
+	if result.Method != config.AuthFromBrowser {
+		t.Errorf("expected method '%s', got '%s'", config.AuthFromBrowser, result.Method)
+	}
+}
+
+func TestFirefoxCookieRead_NoCookies(t *testing.T) {
+	dbPath := createTestCookieDB(t, []struct{ name, value, host string }{})
+
+	_, err := readFirefoxCookies(dbPath)
+	if err == nil {
+		t.Fatal("expected error for empty moz_cookies table, got nil")
+	}
+	if !strings.Contains(err.Error(), "no sched.com token cookie found") {
+		t.Errorf("expected 'no sched.com token cookie found' error, got: %v", err)
+	}
+}
+
+func TestFirefoxCookieRead_MissingToken(t *testing.T) {
+	dbPath := createTestCookieDB(t, []struct{ name, value, host string }{
+		{"ucontext", "ff-ucontext-only", ".sched.com"},
+	})
+
+	_, err := readFirefoxCookies(dbPath)
+	if err == nil {
+		t.Fatal("expected error when token cookie is missing, got nil")
+	}
+	if !strings.Contains(err.Error(), "no sched.com token cookie found") {
+		t.Errorf("expected 'no sched.com token cookie found' error, got: %v", err)
+	}
+}
+
+func TestFirefoxCookieRead_TokenOnly(t *testing.T) {
+	dbPath := createTestCookieDB(t, []struct{ name, value, host string }{
+		{"token", "ff-token-nouctx", ".sched.com"},
+	})
+
+	result, err := readFirefoxCookies(dbPath)
+	if err != nil {
+		t.Fatalf("expected no error with token-only, got: %v", err)
+	}
+
+	if result.Token != "ff-token-nouctx" {
+		t.Errorf("expected token 'ff-token-nouctx', got '%s'", result.Token)
+	}
+	if result.UContext != "" {
+		t.Errorf("expected empty ucontext, got '%s'", result.UContext)
+	}
+}
+
+func TestFirefoxCookieRead_InvalidDB(t *testing.T) {
+	dir := t.TempDir()
+	dbPath := filepath.Join(dir, "bad.sqlite")
+	if err := os.WriteFile(dbPath, []byte("not a database"), 0600); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err := readFirefoxCookies(dbPath)
+	if err == nil {
+		t.Fatal("expected error for invalid database, got nil")
 	}
 }
