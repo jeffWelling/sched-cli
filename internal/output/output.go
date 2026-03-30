@@ -9,12 +9,14 @@ import (
 	"text/tabwriter"
 
 	"github.com/jeff/sched-cli/internal/store"
+	"golang.org/x/term"
 )
 
 // Formatter handles output rendering in table or JSON format.
 type Formatter struct {
-	w        io.Writer
-	jsonMode bool
+	w          io.Writer
+	jsonMode   bool
+	prettyJSON bool
 }
 
 // CompareResult holds the result of a schedule comparison.
@@ -51,23 +53,25 @@ type RateStatus struct {
 }
 
 // New creates a Formatter that writes to w. If jsonMode is true, all output is JSON.
-func New(w io.Writer, jsonMode bool) *Formatter {
-	return &Formatter{w: w, jsonMode: jsonMode}
+// If prettyJSON is true, JSON output is indented; otherwise it is compact NDJSON.
+func New(w io.Writer, jsonMode bool, prettyJSON bool) *Formatter {
+	return &Formatter{w: w, jsonMode: jsonMode, prettyJSON: prettyJSON}
 }
 
 // AutoDetect creates a Formatter, choosing JSON if stdout is not a terminal.
-func AutoDetect(jsonMode bool) *Formatter {
+// prettyJSON controls whether JSON output is indented (--json-pretty) or compact NDJSON.
+func AutoDetect(jsonMode bool, prettyJSON bool) *Formatter {
 	isTerminal := IsTerminal(os.Stdout.Fd())
 	return &Formatter{
-		w:        os.Stdout,
-		jsonMode: jsonMode || !isTerminal,
+		w:          os.Stdout,
+		jsonMode:   jsonMode || !isTerminal,
+		prettyJSON: prettyJSON,
 	}
 }
 
 // IsTerminal returns true if the file descriptor is a terminal.
 func IsTerminal(fd uintptr) bool {
-	// Stub — will use golang.org/x/term in implementation
-	return false
+	return term.IsTerminal(int(fd))
 }
 
 // FormatSessions renders a list of sessions.
@@ -174,7 +178,9 @@ func (f *Formatter) writeSessionTable(sessions []store.Session) error {
 
 func (f *Formatter) writeJSON(v interface{}) error {
 	enc := json.NewEncoder(f.w)
-	enc.SetIndent("", "  ")
+	if f.prettyJSON {
+		enc.SetIndent("", "  ")
+	}
 	return enc.Encode(v)
 }
 

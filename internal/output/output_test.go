@@ -3,6 +3,7 @@ package output
 import (
 	"bytes"
 	"encoding/json"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -76,7 +77,7 @@ func sampleRateStatus() RateStatus {
 
 func TestFormatSessions_JSON_Valid(t *testing.T) {
 	var buf bytes.Buffer
-	f := New(&buf, true)
+	f := New(&buf, true, false)
 
 	err := f.FormatSessions(sampleSessions())
 	if err != nil {
@@ -90,7 +91,7 @@ func TestFormatSessions_JSON_Valid(t *testing.T) {
 
 func TestFormatSchedule_JSON_Valid(t *testing.T) {
 	var buf bytes.Buffer
-	f := New(&buf, true)
+	f := New(&buf, true, false)
 
 	err := f.FormatSchedule(sampleSessions())
 	if err != nil {
@@ -104,7 +105,7 @@ func TestFormatSchedule_JSON_Valid(t *testing.T) {
 
 func TestFormatFriends_JSON_Valid(t *testing.T) {
 	var buf bytes.Buffer
-	f := New(&buf, true)
+	f := New(&buf, true, false)
 
 	err := f.FormatFriends(sampleFriends())
 	if err != nil {
@@ -118,7 +119,7 @@ func TestFormatFriends_JSON_Valid(t *testing.T) {
 
 func TestFormatComparison_JSON_Valid(t *testing.T) {
 	var buf bytes.Buffer
-	f := New(&buf, true)
+	f := New(&buf, true, false)
 
 	err := f.FormatComparison(sampleCompareResult())
 	if err != nil {
@@ -132,7 +133,7 @@ func TestFormatComparison_JSON_Valid(t *testing.T) {
 
 func TestFormatRateStatus_JSON_Valid(t *testing.T) {
 	var buf bytes.Buffer
-	f := New(&buf, true)
+	f := New(&buf, true, false)
 
 	err := f.FormatRateStatus(sampleRateStatus())
 	if err != nil {
@@ -146,7 +147,7 @@ func TestFormatRateStatus_JSON_Valid(t *testing.T) {
 
 func TestFormatSessionDetail_JSON_Valid(t *testing.T) {
 	var buf bytes.Buffer
-	f := New(&buf, true)
+	f := New(&buf, true, false)
 
 	err := f.FormatSessionDetail(sampleSession())
 	if err != nil {
@@ -160,7 +161,7 @@ func TestFormatSessionDetail_JSON_Valid(t *testing.T) {
 
 func TestFormatSessions_JSON_IncludesAllFields(t *testing.T) {
 	var buf bytes.Buffer
-	f := New(&buf, true)
+	f := New(&buf, true, false)
 
 	err := f.FormatSessions([]store.Session{sampleSession()})
 	if err != nil {
@@ -199,7 +200,7 @@ func TestFormatSessions_JSON_IncludesAllFields(t *testing.T) {
 
 func TestFormatSessions_Table_HasHeaderAndColumns(t *testing.T) {
 	var buf bytes.Buffer
-	f := New(&buf, false)
+	f := New(&buf, false, false)
 
 	err := f.FormatSessions(sampleSessions())
 	if err != nil {
@@ -232,7 +233,7 @@ func TestFormatSessions_Table_HasHeaderAndColumns(t *testing.T) {
 
 func TestFormatFriends_Table_HasNicknameAndUsername(t *testing.T) {
 	var buf bytes.Buffer
-	f := New(&buf, false)
+	f := New(&buf, false, false)
 
 	err := f.FormatFriends(sampleFriends())
 	if err != nil {
@@ -259,7 +260,7 @@ func TestFormatFriends_Table_HasNicknameAndUsername(t *testing.T) {
 
 func TestFormatRateStatus_Table_ShowsAllFields(t *testing.T) {
 	var buf bytes.Buffer
-	f := New(&buf, false)
+	f := New(&buf, false, false)
 
 	err := f.FormatRateStatus(sampleRateStatus())
 	if err != nil {
@@ -280,7 +281,7 @@ func TestFormatRateStatus_Table_ShowsAllFields(t *testing.T) {
 
 func TestFormatSessionDetail_Table_ShowsAllFields(t *testing.T) {
 	var buf bytes.Buffer
-	f := New(&buf, false)
+	f := New(&buf, false, false)
 
 	err := f.FormatSessionDetail(sampleSession())
 	if err != nil {
@@ -331,7 +332,7 @@ func TestTruncate_ShortTitleNotTruncated(t *testing.T) {
 
 func TestFormatSessions_Table_TruncatesLongTitles(t *testing.T) {
 	var buf bytes.Buffer
-	f := New(&buf, false)
+	f := New(&buf, false, false)
 
 	longTitle := strings.Repeat("X", 100)
 	sessions := []store.Session{
@@ -364,7 +365,7 @@ func TestFormatSessions_Table_TruncatesLongTitles(t *testing.T) {
 
 func TestFormatSessions_EmptySlice_NoPanic(t *testing.T) {
 	var buf bytes.Buffer
-	f := New(&buf, false)
+	f := New(&buf, false, false)
 
 	err := f.FormatSessions([]store.Session{})
 	if err != nil {
@@ -374,7 +375,7 @@ func TestFormatSessions_EmptySlice_NoPanic(t *testing.T) {
 
 func TestFormatSessions_EmptySlice_JSON_NoPanic(t *testing.T) {
 	var buf bytes.Buffer
-	f := New(&buf, true)
+	f := New(&buf, true, false)
 
 	err := f.FormatSessions([]store.Session{})
 	if err != nil {
@@ -388,7 +389,7 @@ func TestFormatSessions_EmptySlice_JSON_NoPanic(t *testing.T) {
 
 func TestFormatFriends_EmptySlice_OutputsHeader(t *testing.T) {
 	var buf bytes.Buffer
-	f := New(&buf, false)
+	f := New(&buf, false, false)
 
 	err := f.FormatFriends([]store.Friend{})
 	if err != nil {
@@ -403,7 +404,7 @@ func TestFormatFriends_EmptySlice_OutputsHeader(t *testing.T) {
 
 func TestFormatComparison_EmptyResult_RendersCleanly(t *testing.T) {
 	var buf bytes.Buffer
-	f := New(&buf, false)
+	f := New(&buf, false, false)
 
 	err := f.FormatComparison(CompareResult{})
 	if err != nil {
@@ -424,7 +425,7 @@ func TestFormatComparison_EmptyResult_RendersCleanly(t *testing.T) {
 
 func TestFormatComparison_Table_OverlapsSection(t *testing.T) {
 	var buf bytes.Buffer
-	f := New(&buf, false)
+	f := New(&buf, false, false)
 
 	result := sampleCompareResult()
 	err := f.FormatComparison(result)
@@ -449,7 +450,7 @@ func TestFormatComparison_Table_OverlapsSection(t *testing.T) {
 
 func TestFormatComparison_Table_GapsSection(t *testing.T) {
 	var buf bytes.Buffer
-	f := New(&buf, false)
+	f := New(&buf, false, false)
 
 	result := sampleCompareResult()
 	err := f.FormatComparison(result)
@@ -469,7 +470,7 @@ func TestFormatComparison_Table_GapsSection(t *testing.T) {
 func TestFormatComparison_Table_OnlyNonEmptySections(t *testing.T) {
 	// Only overlaps, no gaps
 	var buf bytes.Buffer
-	f := New(&buf, false)
+	f := New(&buf, false, false)
 
 	result := CompareResult{
 		Overlaps: []OverlapEntry{
@@ -507,5 +508,70 @@ func TestFormatComparison_Table_OnlyNonEmptySections(t *testing.T) {
 	}
 	if !strings.Contains(output2, "GAPS") {
 		t.Error("output should contain GAPS when present")
+	}
+}
+
+// --- IsTerminal ---
+
+func TestIsTerminal_DoesNotPanic(t *testing.T) {
+	_ = IsTerminal(os.Stdout.Fd())
+}
+
+// --- JSON output modes ---
+
+func TestWriteJSON_Compact_NoIndentation(t *testing.T) {
+	var buf bytes.Buffer
+	f := New(&buf, true, false)
+
+	err := f.FormatSessions([]store.Session{sampleSession()})
+	if err != nil {
+		t.Fatalf("FormatSessions error: %v", err)
+	}
+
+	output := buf.String()
+	if !json.Valid([]byte(output)) {
+		t.Fatal("compact JSON output is not valid JSON")
+	}
+
+	// Compact JSON should be a single line (no embedded newlines except the trailing one from Encode)
+	lines := strings.Split(strings.TrimSpace(output), "\n")
+	if len(lines) != 1 {
+		t.Errorf("compact JSON should be a single line, got %d lines", len(lines))
+	}
+}
+
+func TestWriteJSON_Pretty_HasIndentation(t *testing.T) {
+	var buf bytes.Buffer
+	f := New(&buf, true, true)
+
+	err := f.FormatSessions([]store.Session{sampleSession()})
+	if err != nil {
+		t.Fatalf("FormatSessions error: %v", err)
+	}
+
+	output := buf.String()
+	if !json.Valid([]byte(output)) {
+		t.Fatal("pretty JSON output is not valid JSON")
+	}
+
+	// Pretty JSON should have multiple lines with indentation
+	lines := strings.Split(strings.TrimSpace(output), "\n")
+	if len(lines) <= 1 {
+		t.Error("pretty JSON should span multiple lines")
+	}
+	if !strings.Contains(output, "  ") {
+		t.Error("pretty JSON should contain indentation")
+	}
+}
+
+func TestAutoDetect_ForcesJSONInNonTTY(t *testing.T) {
+	// AutoDetect with jsonMode=false should still enable JSON since tests run in non-TTY
+	f := AutoDetect(false, false)
+	if f == nil {
+		t.Fatal("AutoDetect returned nil")
+	}
+	// In a test environment (non-TTY), jsonMode should be true
+	if !f.jsonMode {
+		t.Error("AutoDetect should enable JSON mode when stdout is not a terminal")
 	}
 }
