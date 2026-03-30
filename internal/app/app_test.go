@@ -1,6 +1,7 @@
 package app
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -247,6 +248,52 @@ func TestSaveConfig(t *testing.T) {
 	}
 	if !contains(content, "https://test.sched.com") {
 		t.Errorf("saved config does not contain event_url: %s", content)
+	}
+}
+
+func TestIsAuthError_True_401(t *testing.T) {
+	err := fmt.Errorf("request failed: HTTP 401 Unauthorized")
+	if !IsAuthError(err) {
+		t.Error("expected IsAuthError to return true for HTTP 401")
+	}
+}
+
+func TestIsAuthError_True_403(t *testing.T) {
+	err := fmt.Errorf("request failed: HTTP 403 Forbidden")
+	if !IsAuthError(err) {
+		t.Error("expected IsAuthError to return true for HTTP 403")
+	}
+}
+
+func TestIsAuthError_False(t *testing.T) {
+	err := fmt.Errorf("request failed: HTTP 500 Internal Server Error")
+	if IsAuthError(err) {
+		t.Error("expected IsAuthError to return false for HTTP 500")
+	}
+}
+
+func TestIsAuthError_Nil(t *testing.T) {
+	if IsAuthError(nil) {
+		t.Error("expected IsAuthError to return false for nil error")
+	}
+}
+
+func TestReAuth_ReturnsError(t *testing.T) {
+	setupTestDirs(t)
+
+	a, err := New(false, false, false, "test")
+	if err != nil {
+		t.Fatalf("New() error: %v", err)
+	}
+	defer a.Close()
+
+	err = a.ReAuth()
+	if err == nil {
+		t.Fatal("ReAuth() should return error in v1")
+	}
+	msg := err.Error()
+	if !contains(msg, "config login") {
+		t.Errorf("ReAuth() error should mention 'config login', got: %s", msg)
 	}
 }
 

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/jeff/sched-cli/internal/client"
 	"github.com/jeff/sched-cli/internal/config"
@@ -143,6 +144,11 @@ func (a *App) Paths() *paths.Resolver {
 
 // RequireAuth checks if config has valid auth. Returns error if not authenticated.
 // If authenticated but client hasn't been created yet, creates it.
+//
+// Token expiry detection: we cannot cheaply validate token expiry without making
+// a real HTTP call. When the client makes its first API call and receives a
+// 401/403, the calling command should check IsAuthError() and advise the user
+// to re-authenticate via 'sched-cli config login'.
 func (a *App) RequireAuth() error {
 	if !a.cfg.HasAuth() {
 		return fmt.Errorf("not authenticated. Run 'sched-cli config init' to set up.")
@@ -154,6 +160,28 @@ func (a *App) RequireAuth() error {
 		})
 	}
 	return nil
+}
+
+// ReAuth advises the user to re-authenticate. In v1 this always returns an
+// error telling the user to run config login. Full interactive re-auth (prompting
+// for credentials inline) can be added in a follow-up version.
+func (a *App) ReAuth() error {
+	if !output.IsTerminal(os.Stdout.Fd()) {
+		return fmt.Errorf("authentication token expired. Run 'sched-cli config login' to re-authenticate")
+	}
+	// For v1, all auth methods just tell the user to re-run config login.
+	return fmt.Errorf("token expired. Run 'sched-cli config login' to re-authenticate")
+}
+
+// IsAuthError checks whether an error indicates an authentication failure
+// (HTTP 401 Unauthorized or HTTP 403 Forbidden). Commands that call the API
+// should check this and advise re-authentication when true.
+func IsAuthError(err error) bool {
+	if err == nil {
+		return false
+	}
+	s := err.Error()
+	return strings.Contains(s, "HTTP 401") || strings.Contains(s, "HTTP 403")
 }
 
 // SaveConfig persists the current config to disk.
