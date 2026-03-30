@@ -2,6 +2,8 @@ package auth
 
 import (
 	"fmt"
+	"io"
+	"os"
 
 	"github.com/jeff/sched-cli/internal/client"
 	"github.com/jeff/sched-cli/internal/config"
@@ -18,6 +20,19 @@ type AuthResult struct {
 type Authenticator struct {
 	isInteractive bool
 	loginFn       func(email, password string) (*client.CookieSet, error)
+	// output is the writer for user-facing messages. Defaults to os.Stdout.
+	output io.Writer
+	// readyCh is closed when the browser loopback server is ready to accept
+	// connections. Nil in production; set in tests to synchronize.
+	readyCh chan struct{}
+}
+
+// Output returns the writer used for user-facing messages.
+func (a *Authenticator) Output() io.Writer {
+	if a.output != nil {
+		return a.output
+	}
+	return os.Stdout
 }
 
 // New creates an Authenticator that uses the real client.Login function.
