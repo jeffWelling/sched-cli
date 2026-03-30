@@ -75,6 +75,8 @@ func New(dbPath string) (*Store, error) {
 		db.Close()
 		return nil, err
 	}
+	// Clean up old api_calls rows (>24h) to prevent unbounded growth
+	s.CleanupAPICalls(24 * time.Hour)
 	return s, nil
 }
 

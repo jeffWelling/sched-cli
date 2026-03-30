@@ -1103,6 +1103,39 @@ func TestCleanupAPICalls(t *testing.T) {
 	}
 }
 
+func TestNew_CleansUpOldAPICalls(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "cleanup.db")
+	s, err := New(dbPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Insert an old API call (48 hours ago)
+	_, err = s.DB().Exec("INSERT INTO api_calls (called_at, endpoint, method) VALUES (?, ?, ?)",
+		time.Now().UTC().Add(-48*time.Hour), "/old", "GET")
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Insert a recent API call
+	s.LogAPICall("/recent", "GET")
+	s.Close()
+
+	// Re-open — should clean up old calls on startup
+	s2, err := New(dbPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s2.Close()
+
+	var total int
+	err = s2.DB().QueryRow("SELECT COUNT(*) FROM api_calls").Scan(&total)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if total != 1 {
+		t.Errorf("api call count = %d; want 1 (old call should be cleaned up)", total)
+	}
+}
+
 // ---------------------------------------------------------------------------
 // Cache Metadata
 // ---------------------------------------------------------------------------
