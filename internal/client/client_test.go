@@ -662,6 +662,87 @@ func TestGet_InvalidURL(t *testing.T) {
 	}
 }
 
+// --- Retry Logic ---
+
+func TestGet_RetriesOnServerError(t *testing.T) {
+	requestCount := 0
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requestCount++
+		if requestCount == 1 {
+			w.WriteHeader(503)
+			return
+		}
+		w.WriteHeader(200)
+		w.Write([]byte("ok"))
+	}))
+	defer srv.Close()
+
+	c := NewWithHTTPClient(srv.URL, CookieSet{Token: "t", UContext: "u"}, srv.Client())
+	c.retryDelay = 10 * time.Millisecond // fast retry for tests
+
+	data, err := c.get("/test")
+	if err != nil {
+		t.Fatalf("expected success after retry, got: %v", err)
+	}
+	if string(data) != "ok" {
+		t.Errorf("body = %q, want %q", string(data), "ok")
+	}
+	if requestCount != 2 {
+		t.Errorf("expected 2 requests (1 fail + 1 retry), got %d", requestCount)
+	}
+}
+
+func TestGet_DoesNotRetryOn404(t *testing.T) {
+	requestCount := 0
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requestCount++
+		w.WriteHeader(404)
+	}))
+	defer srv.Close()
+
+	c := NewWithHTTPClient(srv.URL, CookieSet{Token: "t", UContext: "u"}, srv.Client())
+	c.retryDelay = 10 * time.Millisecond
+
+	_, err := c.get("/missing")
+	if err == nil {
+		t.Fatal("expected error on 404, got nil")
+	}
+	if requestCount != 1 {
+		t.Errorf("expected exactly 1 request (no retry on 404), got %d", requestCount)
+	}
+}
+
+func TestGet_RetriesOnTimeout(t *testing.T) {
+	requestCount := 0
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requestCount++
+		if requestCount == 1 {
+			// Hang to trigger timeout on first request.
+			time.Sleep(500 * time.Millisecond)
+			return
+		}
+		w.WriteHeader(200)
+		w.Write([]byte("recovered"))
+	}))
+	defer srv.Close()
+
+	// Use a very short timeout so the first request times out.
+	shortTimeout := &http.Client{Timeout: 50 * time.Millisecond}
+	c := NewWithHTTPClient(srv.URL, CookieSet{Token: "t", UContext: "u"}, shortTimeout)
+	c.retryDelay = 10 * time.Millisecond
+
+	data, err := c.get("/test")
+	if err != nil {
+		t.Fatalf("expected success after retry, got: %v", err)
+	}
+	if string(data) != "recovered" {
+		t.Errorf("body = %q, want %q", string(data), "recovered")
+	}
+	if requestCount != 2 {
+		t.Errorf("expected 2 requests (1 timeout + 1 retry), got %d", requestCount)
+	}
+}
+
 // --- Integration-style: full request verification ---
 
 func TestAddToSchedule_VerifiesFullRequest(t *testing.T) {

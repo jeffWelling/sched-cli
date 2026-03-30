@@ -1,8 +1,10 @@
 package client
 
 import (
+	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/url"
 	"strings"
@@ -10,6 +12,9 @@ import (
 
 	"github.com/jeff/sched-cli/internal/store"
 )
+
+// defaultRetryDelay is the duration to wait before retrying a failed request.
+var defaultRetryDelay = 2 * time.Second
 
 // CookieSet holds the auth cookies needed for Sched API requests.
 type CookieSet struct {
@@ -29,6 +34,7 @@ type Client struct {
 	eventURL   string // e.g., "https://srecon26americas.sched.com"
 	cookies    CookieSet
 	httpClient *http.Client
+	retryDelay time.Duration
 }
 
 // New creates a Client for the given event URL with auth cookies.
@@ -37,6 +43,7 @@ func New(eventURL string, cookies CookieSet) *Client {
 		eventURL:   strings.TrimRight(eventURL, "/"),
 		cookies:    cookies,
 		httpClient: &http.Client{Timeout: 30 * time.Second},
+		retryDelay: defaultRetryDelay,
 	}
 }
 
@@ -46,6 +53,7 @@ func NewWithHTTPClient(eventURL string, cookies CookieSet, httpClient *http.Clie
 		eventURL:   strings.TrimRight(eventURL, "/"),
 		cookies:    cookies,
 		httpClient: httpClient,
+		retryDelay: defaultRetryDelay,
 	}
 }
 
@@ -136,9 +144,27 @@ func Login(email, password string) (*CookieSet, error) {
 }
 
 func (c *Client) get(path string) ([]byte, error) {
+	data, err, statusCode := c.doGet(path)
+	if err == nil {
+		return data, nil
+	}
+
+	// Retry once if the error is retryable.
+	if isRetryable(err, statusCode) {
+		time.Sleep(c.retryDelay)
+		data, err, _ = c.doGet(path)
+		return data, err
+	}
+
+	return nil, err
+}
+
+// doGet performs a single GET request and returns the body, error, and status code.
+// Status code is 0 if the request failed before receiving a response.
+func (c *Client) doGet(path string) ([]byte, error, int) {
 	req, err := http.NewRequest("GET", c.eventURL+path, nil)
 	if err != nil {
-		return nil, err
+		return nil, err, 0
 	}
 	req.AddCookie(&http.Cookie{Name: "token", Value: c.cookies.Token})
 	req.AddCookie(&http.Cookie{Name: "ucontext", Value: c.cookies.UContext})
@@ -146,15 +172,42 @@ func (c *Client) get(path string) ([]byte, error) {
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		return nil, err
+		return nil, err, 0
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("HTTP %d from %s", resp.StatusCode, path)
+		return nil, fmt.Errorf("HTTP %d from %s", resp.StatusCode, path), resp.StatusCode
 	}
 
-	return io.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
+	return body, err, resp.StatusCode
+}
+
+// isRetryable returns true for errors that warrant a retry:
+// connection refused, timeouts, and HTTP 502/503/504.
+func isRetryable(err error, statusCode int) bool {
+	if statusCode == 502 || statusCode == 503 || statusCode == 504 {
+		return true
+	}
+
+	if err == nil {
+		return false
+	}
+
+	// net.Error covers timeouts and temporary network errors.
+	var netErr net.Error
+	if errors.As(err, &netErr) {
+		return true
+	}
+
+	// Connection refused shows up as *net.OpError.
+	var opErr *net.OpError
+	if errors.As(err, &opErr) {
+		return true
+	}
+
+	return false
 }
 
 func parseEventSetResponse(data []byte) *EventSetResponse {
