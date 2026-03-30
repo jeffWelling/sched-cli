@@ -4,8 +4,12 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"regexp"
 	"time"
 )
+
+// timeRangeRE validates HH:MM-HH:MM format.
+var timeRangeRE = regexp.MustCompile(`^([01]\d|2[0-3]):[0-5]\d-([01]\d|2[0-3]):[0-5]\d$`)
 
 // Session represents a parsed conference session.
 type Session struct {
@@ -288,6 +292,22 @@ func (s *Store) ListSessions(filters SessionFilters) ([]Session, error) {
 	if filters.Day != "" {
 		query += " AND substr(start_time, 1, 10) = ?"
 		args = append(args, filters.Day)
+	}
+	if filters.Time != "" {
+		if !timeRangeRE.MatchString(filters.Time) {
+			return nil, fmt.Errorf("invalid time range format %q: expected HH:MM-HH:MM", filters.Time)
+		}
+		start := filters.Time[:5]
+		end := filters.Time[6:]
+		if start < end {
+			// Normal range (e.g., 09:00-12:00)
+			query += " AND substr(start_time, 12, 5) >= ? AND substr(start_time, 12, 5) <= ?"
+			args = append(args, start, end)
+		} else {
+			// Cross-midnight range (e.g., 22:00-02:00)
+			query += " AND (substr(start_time, 12, 5) >= ? OR substr(start_time, 12, 5) <= ?)"
+			args = append(args, start, end)
+		}
 	}
 	if filters.Search != "" {
 		query += " AND (title LIKE ? OR description LIKE ?)"

@@ -1249,3 +1249,102 @@ func TestIsCacheStale_TTLNotExceeded(t *testing.T) {
 		t.Error("expected stale=false when TTL not exceeded")
 	}
 }
+
+// ---------------------------------------------------------------------------
+// Time Range Filter
+// ---------------------------------------------------------------------------
+
+func TestListSessions_FilterByTimeRange(t *testing.T) {
+	s := newTestStore(t)
+
+	// Session at 09:00
+	insertTestSessionFull(t, s, Session{
+		HexID: "t1", ShortID: "ts1", Title: "Morning Talk",
+		StartTime: time.Date(2026, 6, 15, 9, 0, 0, 0, time.UTC),
+		FetchedAt: time.Now().UTC(),
+	})
+	// Session at 14:00
+	insertTestSessionFull(t, s, Session{
+		HexID: "t2", ShortID: "ts2", Title: "Afternoon Talk",
+		StartTime: time.Date(2026, 6, 15, 14, 0, 0, 0, time.UTC),
+		FetchedAt: time.Now().UTC(),
+	})
+
+	sessions, err := s.ListSessions(SessionFilters{Time: "09:00-12:00"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(sessions) != 1 {
+		t.Fatalf("len = %d; want 1", len(sessions))
+	}
+	if sessions[0].HexID != "t1" {
+		t.Errorf("HexID = %q; want t1", sessions[0].HexID)
+	}
+}
+
+func TestListSessions_FilterByTimeRange_CrossMidnight(t *testing.T) {
+	s := newTestStore(t)
+
+	// Session at 23:00
+	insertTestSessionFull(t, s, Session{
+		HexID: "n1", ShortID: "ns1", Title: "Late Night Talk",
+		StartTime: time.Date(2026, 6, 15, 23, 0, 0, 0, time.UTC),
+		FetchedAt: time.Now().UTC(),
+	})
+	// Session at 01:00
+	insertTestSessionFull(t, s, Session{
+		HexID: "n2", ShortID: "ns2", Title: "Early Morning Talk",
+		StartTime: time.Date(2026, 6, 16, 1, 0, 0, 0, time.UTC),
+		FetchedAt: time.Now().UTC(),
+	})
+	// Session at 10:00 (should NOT match)
+	insertTestSessionFull(t, s, Session{
+		HexID: "n3", ShortID: "ns3", Title: "Midday Talk",
+		StartTime: time.Date(2026, 6, 15, 10, 0, 0, 0, time.UTC),
+		FetchedAt: time.Now().UTC(),
+	})
+
+	sessions, err := s.ListSessions(SessionFilters{Time: "22:00-02:00"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(sessions) != 2 {
+		t.Fatalf("len = %d; want 2", len(sessions))
+	}
+	// Ordered by start_time: n1 at 2026-06-15T23:00 before n2 at 2026-06-16T01:00.
+	if sessions[0].HexID != "n1" {
+		t.Errorf("first HexID = %q; want n1 (23:00)", sessions[0].HexID)
+	}
+	if sessions[1].HexID != "n2" {
+		t.Errorf("second HexID = %q; want n2 (01:00)", sessions[1].HexID)
+	}
+}
+
+func TestListSessions_FilterByTimeRange_InvalidFormat(t *testing.T) {
+	s := newTestStore(t)
+
+	tests := []struct {
+		name  string
+		input string
+	}{
+		{"no dash", "0900"},
+		{"missing minutes", "09-12"},
+		{"bad separator", "09:00_12:00"},
+		{"out of range hour", "25:00-12:00"},
+		{"out of range minute", "09:61-12:00"},
+		{"empty string", ""},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Skip empty string — it's not an error, it means no filter.
+			if tt.input == "" {
+				return
+			}
+			_, err := s.ListSessions(SessionFilters{Time: tt.input})
+			if err == nil {
+				t.Errorf("expected error for Time=%q, got nil", tt.input)
+			}
+		})
+	}
+}
