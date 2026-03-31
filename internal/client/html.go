@@ -36,7 +36,11 @@ func ParseScheduleHTML(data []byte) ([]ScheduleEntry, error) {
 		}
 
 		entry.HexID, _ = link.Attr("id")
-		entry.Title = strings.TrimSpace(link.Text())
+		// Remove venue span (.vs) before extracting title text
+		// Real Sched HTML: <a class="name">Title <span class="vs">Venue</span></a>
+		linkClone := link.Clone()
+		linkClone.Find("span.vs").Remove()
+		entry.Title = strings.TrimSpace(linkClone.Text())
 
 		if href, exists := link.Attr("href"); exists {
 			entry.ShortID = extractShortID(href)
