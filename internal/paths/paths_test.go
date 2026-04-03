@@ -35,6 +35,14 @@ func TestPlatformDefaults_Darwin(t *testing.T) {
 }
 
 func TestPlatformDefaults_Linux(t *testing.T) {
+	// Clear env vars that would override the platform defaults
+	t.Setenv("SCHED_CONFIG_DIR", "")
+	t.Setenv("SCHED_CACHE_DIR", "")
+	t.Setenv("SCHED_LOG_DIR", "")
+	t.Setenv("XDG_CONFIG_HOME", "")
+	t.Setenv("XDG_CACHE_HOME", "")
+	t.Setenv("XDG_STATE_HOME", "")
+
 	home := "/home/testuser"
 	r := NewWithOverrides(StylePlatform, home, "linux")
 
@@ -269,6 +277,10 @@ func TestEnvVarOverrides(t *testing.T) {
 }
 
 func TestTableDriven_ConfigDir(t *testing.T) {
+	// Clear env vars that could interfere with platform defaults
+	t.Setenv("SCHED_CONFIG_DIR", "")
+	t.Setenv("XDG_CONFIG_HOME", "")
+
 	tests := []struct {
 		name     string
 		style    DirectoryStyle

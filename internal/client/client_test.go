@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -713,10 +714,10 @@ func TestGet_DoesNotRetryOn404(t *testing.T) {
 }
 
 func TestGet_RetriesOnTimeout(t *testing.T) {
-	requestCount := 0
+	var requestCount int32
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		requestCount++
-		if requestCount == 1 {
+		count := atomic.AddInt32(&requestCount, 1)
+		if count == 1 {
 			// Hang to trigger timeout on first request.
 			time.Sleep(500 * time.Millisecond)
 			return
