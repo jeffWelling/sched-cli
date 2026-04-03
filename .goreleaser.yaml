@@ -1,0 +1,57 @@
+version: 2
+
+project_name: sched-cli
+
+builds:
+  - id: sched-cli
+    binary: sched-cli
+    dir: ./cmd/sched-cli
+    env:
+      - CGO_ENABLED=0
+    ldflags:
+      - -s -w -X main.version={{.Version}} -X main.commit={{.ShortCommit}} -X main.date={{.Date}}
+    goos:
+      - darwin
+      - linux
+    goarch:
+      - amd64
+      - arm64
+
+archives:
+  - id: default
+    format: tar.gz
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+
+checksum:
+  name_template: "checksums.txt"
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^ci:"
+      - "^chore:"
+
+release:
+  github:
+    owner: jeffWelling
+    name: sched-cli
+  draft: false
+  prerelease: auto
+  name_template: "v{{ .Version }}"
+
+brews:
+  - name: sched-cli
+    repository:
+      owner: jeffWelling
+      name: homebrew-tap
+      token: "{{ .Env.TAP_GITHUB_TOKEN }}"
+    homepage: "https://github.com/jeffWelling/sched-cli"
+    description: "CLI tool for Sched.com conference schedules"
+    license: "MIT"
+    skip_upload: auto
+    commit_author:
+      name: goreleaserbot
+      email: bot@goreleaser.com

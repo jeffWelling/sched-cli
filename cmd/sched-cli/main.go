@@ -7,6 +7,13 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// Set by GoReleaser ldflags at build time.
+var (
+	version = "dev"
+	commit  = "none"
+	date    = "unknown"
+)
+
 var (
 	jsonFlag      bool
 	jsonPretty    bool
@@ -19,8 +26,9 @@ var (
 )
 
 var rootCmd = &cobra.Command{
-	Use:   "sched-cli",
-	Short: "CLI tool for Sched.com conference schedules",
+	Use:     "sched-cli",
+	Short:   "CLI tool for Sched.com conference schedules",
+	Version: version,
 	Long: `Browse sessions, manage your schedule, compare with friends, and plan
 conference attendance from the terminal.
 
