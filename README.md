@@ -44,7 +44,7 @@ sched-cli sync
 sched-cli sessions list
 sched-cli sessions list --search "kubernetes"
 sched-cli sessions list --day 2026-03-24
-sched-cli sessions list --time 09:00-12:00
+sched-cli sessions list --time 16:00-19:00  # Times are in UTC
 
 # View your schedule
 sched-cli schedule show
@@ -63,9 +63,9 @@ sched-cli schedule remove e6f499540ac79243410b138edde13b1a
 ```bash
 sched-cli sessions list                          # List all sessions
 sched-cli sessions list --search "observability" # Search by keyword
-sched-cli sessions list --track "Track 1"        # Filter by track
+sched-cli sessions list --track "PLENARY"        # Filter by track
 sched-cli sessions list --day 2026-03-25         # Filter by date
-sched-cli sessions list --time 09:00-12:00       # Filter by time range
+sched-cli sessions list --time 16:00-19:00  # Times are in UTC       # Filter by time range
 sched-cli sessions show <session-id>             # Show session details
 sched-cli sessions search <query>                # Search sessions
 ```
