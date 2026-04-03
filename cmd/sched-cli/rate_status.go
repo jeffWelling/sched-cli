@@ -11,6 +11,14 @@ import (
 var rateStatusCmd = &cobra.Command{
 	Use:   "rate-status",
 	Short: "Show API rate limit usage",
+	Long: `Show how many API calls have been made in the current rate-limit window,
+the configured limit, and how much budget remains. sched-cli enforces a
+local rate limiter to avoid hammering the Sched.com web interface.
+
+Use this to check whether you are close to the limit before running
+a batch of operations.`,
+	Example: `  # Check rate limit status
+  sched-cli rate-status`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		a, err := app.New(debug, jsonFlag, jsonPretty, "rate-status")
 		if err != nil {

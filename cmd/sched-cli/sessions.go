@@ -18,6 +18,10 @@ var (
 var sessionsCmd = &cobra.Command{
 	Use:   "sessions",
 	Short: "Browse and search sessions",
+	Long: `Browse and search sessions for the active event.
+
+Requires a prior sync. Run "sched-cli sync" to pull session data first.
+Subcommands let you list with filters, show full details, or search by keyword.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		return cmd.Help()
 	},
@@ -26,6 +30,25 @@ var sessionsCmd = &cobra.Command{
 var sessionsListCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List sessions with optional filters",
+	Long: `List all sessions for the active event, with optional filtering by track,
+day, time range, or keyword search. Results are sorted by start time.
+
+Requires a prior sync. Run "sched-cli sync" to pull session data first.
+Output is a formatted table in terminal, or JSON when piped or with --json.`,
+	Example: `  # List all sessions
+  sched-cli sessions list
+
+  # Filter by track
+  sched-cli sessions list --track "PLENARY"
+
+  # Sessions on a specific day
+  sched-cli sessions list --day 2026-03-25
+
+  # Morning sessions (times are UTC)
+  sched-cli sessions list --time 16:00-19:00
+
+  # Search by keyword
+  sched-cli sessions list --search "kubernetes"`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		a, err := app.New(debug, jsonFlag, jsonPretty, "sessions-list")
 		if err != nil {
@@ -52,7 +75,16 @@ var sessionsListCmd = &cobra.Command{
 var sessionsShowCmd = &cobra.Command{
 	Use:   "show SESSION_ID",
 	Short: "Show detailed info for a session",
-	Args:  cobra.ExactArgs(1),
+	Long: `Show the full details for a single session, including title, description,
+speakers, track, location, and time. Accepts a hex session ID.
+
+Use "sched-cli sessions list" or "sched-cli sessions search" to find IDs.`,
+	Example: `  # Show session details by hex ID
+  sched-cli sessions show e6f499540ac79243410b138edde13b1a
+
+  # Output as JSON for scripting
+  sched-cli sessions show e6f499540ac79243410b138edde13b1a --json`,
+	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		a, err := app.New(debug, jsonFlag, jsonPretty, "sessions-show")
 		if err != nil {
@@ -75,7 +107,19 @@ var sessionsShowCmd = &cobra.Command{
 var sessionsSearchCmd = &cobra.Command{
 	Use:   "search QUERY",
 	Short: "Search sessions by keyword",
-	Args:  cobra.MinimumNArgs(1),
+	Long: `Search session titles and descriptions for a keyword or phrase. Multiple
+words are joined into a single query. Results are sorted by start time.
+
+This is a convenience shortcut for "sched-cli sessions list --search QUERY".`,
+	Example: `  # Search for SRE-related sessions
+  sched-cli sessions search SRE
+
+  # Multi-word search
+  sched-cli sessions search incident response
+
+  # Combine with JSON output
+  sched-cli sessions search observability --json`,
+	Args: cobra.MinimumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		a, err := app.New(debug, jsonFlag, jsonPretty, "sessions-search")
 		if err != nil {

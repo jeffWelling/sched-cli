@@ -12,6 +12,9 @@ import (
 var cacheCmd = &cobra.Command{
 	Use:   "cache",
 	Short: "Cache management",
+	Long: `View and manage the local SQLite cache that stores session data, your
+schedule, interests, and friend information. The cache is populated by
+"sched-cli sync" and lives in the platform-appropriate cache directory.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		return cmd.Help()
 	},
@@ -20,6 +23,10 @@ var cacheCmd = &cobra.Command{
 var cacheStatusCmd = &cobra.Command{
 	Use:   "status",
 	Short: "Show cache statistics",
+	Long: `Show the cache directory path, database file size, and number of sessions
+currently stored. Useful for verifying that a sync has populated data.`,
+	Example: `  # Check cache status
+  sched-cli cache status`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		a, err := app.New(debug, jsonFlag, jsonPretty, "cache-status")
 		if err != nil {
@@ -51,7 +58,11 @@ var cacheStatusCmd = &cobra.Command{
 var cacheClearCmd = &cobra.Command{
 	Use:   "clear",
 	Short: "Clear all cached data",
-	Long:  "Remove the cache database. It will be recreated on next use.",
+	Long: `Remove the local cache database entirely. It will be recreated on the next
+"sched-cli sync". This clears all cached sessions, your local schedule copy,
+interests, and friend schedules. Friends and configuration are not affected.`,
+	Example: `  # Clear the cache and re-sync
+  sched-cli cache clear`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		a, err := app.New(debug, jsonFlag, jsonPretty, "cache-clear")
 		if err != nil {

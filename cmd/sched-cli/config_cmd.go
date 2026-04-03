@@ -27,6 +27,9 @@ var (
 var configCmd = &cobra.Command{
 	Use:   "config",
 	Short: "Setup and configuration",
+	Long: `Manage sched-cli configuration, including authentication, event URL,
+and runtime settings. Configuration is stored in the platform-appropriate
+config directory (e.g., ~/.config/sched-cli/ on Linux).`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		return cmd.Help()
 	},
@@ -35,7 +38,27 @@ var configCmd = &cobra.Command{
 var configInitCmd = &cobra.Command{
 	Use:   "init",
 	Short: "Initialize sched-cli configuration",
-	Long:  "Set up authentication, event URL, and initial sync.",
+	Long: `Set up authentication, event URL, and prepare sched-cli for first use.
+Supports multiple auth methods: email/password, token, browser loopback,
+or Firefox cookie extraction. In interactive mode (terminal), presents a
+menu to choose the method.
+
+After authentication, prompts for the event URL if not already set.
+Run "sched-cli sync" after init to pull session data.`,
+	Example: `  # Interactive setup (prompts for auth method)
+  sched-cli config init
+
+  # Non-interactive with credentials
+  sched-cli config init --username user@example.com --password secret
+
+  # Non-interactive with token
+  sched-cli config init --token abc123
+
+  # Authenticate via browser
+  sched-cli config init --browser
+
+  # Extract auth from Firefox cookies
+  sched-cli config init --from-browser`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		a, err := app.New(debug, jsonFlag, jsonPretty, "config-init")
 		if err != nil {
@@ -115,6 +138,11 @@ var configInitCmd = &cobra.Command{
 var configShowCmd = &cobra.Command{
 	Use:   "show",
 	Short: "Show current configuration",
+	Long: `Display all current configuration values, including the event URL, username,
+auth method, directory paths, and cache settings. The auth token is redacted
+for security.`,
+	Example: `  # Show current config
+  sched-cli config show`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		a, err := app.New(debug, jsonFlag, jsonPretty, "config-show")
 		if err != nil {
@@ -167,7 +195,23 @@ var configSetSensitiveKeys = map[string]bool{
 var configSetCmd = &cobra.Command{
 	Use:   "set KEY VALUE",
 	Short: "Set a configuration value",
-	Args:  cobra.ExactArgs(2),
+	Long: `Set a single configuration key to a new value. Allowed keys: event_url,
+username, directory_style, log_retention_days, cache_ttl_hours, syslog.
+
+Sensitive keys (token, ucontext, auth_method) cannot be set directly;
+use "sched-cli config login" to change authentication credentials.`,
+	Example: `  # Set the event URL
+  sched-cli config set event_url https://srecon26.sched.com
+
+  # Set your Sched username
+  sched-cli config set username alice.smith42
+
+  # Change directory layout to XDG
+  sched-cli config set directory_style xdg
+
+  # Adjust cache TTL
+  sched-cli config set cache_ttl_hours 12`,
+	Args: cobra.ExactArgs(2),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		key := args[0]
 		value := args[1]
@@ -233,7 +277,20 @@ var configSetCmd = &cobra.Command{
 var configLoginCmd = &cobra.Command{
 	Use:   "login",
 	Short: "Re-authenticate with Sched.com",
-	Long:  "Change authentication credentials. Always shows the full auth method menu.",
+	Long: `Re-authenticate with Sched.com using a new auth method or credentials.
+Supports the same methods as "config init": email/password, token, browser,
+or Firefox cookies. In interactive mode, presents the full auth method menu.
+
+This updates only the auth credentials in the config; other settings
+like event_url and username are preserved.`,
+	Example: `  # Re-authenticate interactively
+  sched-cli config login
+
+  # Re-authenticate with credentials
+  sched-cli config login --username user@example.com --password secret
+
+  # Re-authenticate via browser
+  sched-cli config login --browser`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		a, err := app.New(debug, jsonFlag, jsonPretty, "config-login")
 		if err != nil {

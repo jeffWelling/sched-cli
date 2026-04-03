@@ -21,7 +21,26 @@ var (
 var rootCmd = &cobra.Command{
 	Use:   "sched-cli",
 	Short: "CLI tool for Sched.com conference schedules",
-	Long:  "Browse sessions, manage your schedule, compare with friends, and plan conference attendance from the terminal.",
+	Long: `Browse sessions, manage your schedule, compare with friends, and plan
+conference attendance from the terminal.
+
+Typical workflow:
+  1. sched-cli config init    — authenticate with Sched.com
+  2. sched-cli sync           — pull sessions and your schedule
+  3. sched-cli sessions list  — browse available sessions
+  4. sched-cli interest add   — flag sessions for local what-if planning
+  5. sched-cli interest push  — commit your picks to the live schedule
+
+Use --json or --json-pretty on any command to get machine-readable output.
+Use --event to temporarily target a different Sched event.`,
+	Example: `  # Get started with a new event
+  sched-cli config init
+  sched-cli sync
+
+  # Browse and plan
+  sched-cli sessions list --track "PLENARY"
+  sched-cli interest add e6f499540ac79243410b138edde13b1a
+  sched-cli compare --with alice`,
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 		// Validate conflicting flags
 		if noCache && cacheOnly {

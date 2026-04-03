@@ -11,7 +11,11 @@ import (
 var interestCmd = &cobra.Command{
 	Use:   "interest",
 	Short: "Local what-if planning",
-	Long:  "Flag sessions as interesting for local planning. Use 'interest push' to commit them to your Sched schedule.",
+	Long: `Flag sessions as interesting for local what-if planning, without touching
+your live Sched.com schedule. Build up a shortlist, compare with friends,
+then push your final picks with "sched-cli interest push".
+
+Interests are stored locally until pushed.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		return cmd.Help()
 	},
@@ -20,7 +24,16 @@ var interestCmd = &cobra.Command{
 var interestAddCmd = &cobra.Command{
 	Use:   "add SESSION_ID [SESSION_ID...]",
 	Short: "Flag session(s) as interested",
-	Args:  cobra.MinimumNArgs(1),
+	Long: `Flag one or more sessions as interesting by hex ID. This is a local-only
+operation — nothing is sent to Sched.com until you run "sched-cli interest push".
+
+Use this to build a shortlist before committing to your schedule.`,
+	Example: `  # Flag a single session
+  sched-cli interest add e6f499540ac79243410b138edde13b1a
+
+  # Flag multiple sessions
+  sched-cli interest add e6f499540ac79243410b138edde13b1a abc123def456`,
+	Args: cobra.MinimumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		a, err := app.New(debug, jsonFlag, jsonPretty, "interest-add")
 		if err != nil {
@@ -46,7 +59,12 @@ var interestAddCmd = &cobra.Command{
 var interestRemoveCmd = &cobra.Command{
 	Use:   "remove SESSION_ID [SESSION_ID...]",
 	Short: "Remove interest flag from session(s)",
-	Args:  cobra.MinimumNArgs(1),
+	Long: `Remove the interest flag from one or more sessions by hex ID. This only
+affects the local interest list; it does not remove the session from your
+Sched.com schedule if it was already pushed.`,
+	Example: `  # Remove interest from a session
+  sched-cli interest remove e6f499540ac79243410b138edde13b1a`,
+	Args: cobra.MinimumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		a, err := app.New(debug, jsonFlag, jsonPretty, "interest-remove")
 		if err != nil {
@@ -72,6 +90,15 @@ var interestRemoveCmd = &cobra.Command{
 var interestListCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List sessions flagged as interesting",
+	Long: `List all sessions currently flagged as interesting. These are sessions you
+are considering but have not yet committed to your Sched.com schedule.
+
+Use "sched-cli interest push" to add all of them to your live schedule.`,
+	Example: `  # View your interest list
+  sched-cli interest list
+
+  # Output as JSON
+  sched-cli interest list --json`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		a, err := app.New(debug, jsonFlag, jsonPretty, "interest-list")
 		if err != nil {
@@ -91,7 +118,14 @@ var interestListCmd = &cobra.Command{
 var interestPushCmd = &cobra.Command{
 	Use:   "push",
 	Short: "Push all interests to your Sched schedule",
-	Long:  "Add all locally-flagged interesting sessions to your Sched schedule, then move them from interests to the schedule table.",
+	Long: `Add all locally-flagged interesting sessions to your Sched.com schedule in
+one batch. Each session is pushed to the Sched API and moved from the
+interests table to the schedule table locally.
+
+Requires authentication. Sessions that fail to push are reported but do
+not stop the remaining sessions from being processed.`,
+	Example: `  # Push all interests to your live schedule
+  sched-cli interest push`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		a, err := app.New(debug, jsonFlag, jsonPretty, "interest-push")
 		if err != nil {

@@ -11,6 +11,10 @@ import (
 var scheduleCmd = &cobra.Command{
 	Use:   "schedule",
 	Short: "Manage personal schedule",
+	Long: `View and manage sessions on your personal Sched.com schedule.
+
+Adding or removing sessions requires authentication. Changes are pushed
+to the Sched API and also stored locally for offline access.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		return cmd.Help()
 	},
@@ -19,6 +23,14 @@ var scheduleCmd = &cobra.Command{
 var scheduleShowCmd = &cobra.Command{
 	Use:   "show",
 	Short: "Show your scheduled sessions",
+	Long: `Display all sessions currently on your personal schedule, sorted by
+start time. Data comes from the local cache; run "sched-cli sync" to
+refresh from Sched.com.`,
+	Example: `  # View your full schedule
+  sched-cli schedule show
+
+  # Export schedule as JSON
+  sched-cli schedule show --json-pretty`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		a, err := app.New(debug, jsonFlag, jsonPretty, "schedule-show")
 		if err != nil {
@@ -38,7 +50,17 @@ var scheduleShowCmd = &cobra.Command{
 var scheduleAddCmd = &cobra.Command{
 	Use:   "add SESSION_ID [SESSION_ID...]",
 	Short: "Add session(s) to your schedule",
-	Args:  cobra.MinimumNArgs(1),
+	Long: `Add one or more sessions to your Sched.com schedule by hex ID. The change
+is pushed to the Sched API immediately and the local cache is updated.
+
+Requires authentication. Run "sched-cli config init" first if needed.
+For local-only planning before committing, see "sched-cli interest add".`,
+	Example: `  # Add a single session
+  sched-cli schedule add e6f499540ac79243410b138edde13b1a
+
+  # Add multiple sessions at once
+  sched-cli schedule add e6f499540ac79243410b138edde13b1a abc123def456`,
+	Args: cobra.MinimumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		a, err := app.New(debug, jsonFlag, jsonPretty, "schedule-add")
 		if err != nil {
@@ -81,7 +103,17 @@ var scheduleAddCmd = &cobra.Command{
 var scheduleRemoveCmd = &cobra.Command{
 	Use:   "remove SESSION_ID [SESSION_ID...]",
 	Short: "Remove session(s) from your schedule",
-	Args:  cobra.MinimumNArgs(1),
+	Long: `Remove one or more sessions from your Sched.com schedule by hex ID. The
+change is pushed to the Sched API immediately and the local cache is updated.
+
+Requires authentication. This cannot be undone through sched-cli; use
+"sched-cli schedule add" to re-add a removed session.`,
+	Example: `  # Remove a single session
+  sched-cli schedule remove e6f499540ac79243410b138edde13b1a
+
+  # Remove multiple sessions at once
+  sched-cli schedule remove e6f499540ac79243410b138edde13b1a abc123def456`,
+	Args: cobra.MinimumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		a, err := app.New(debug, jsonFlag, jsonPretty, "schedule-remove")
 		if err != nil {

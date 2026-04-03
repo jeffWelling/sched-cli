@@ -12,6 +12,11 @@ import (
 var friendsCmd = &cobra.Command{
 	Use:   "friends",
 	Short: "Manage friend list",
+	Long: `Manage your local friend list. Friends map a short nickname to a Sched
+username, so you can use "sched-cli compare --with alice" instead of
+remembering full Sched usernames.
+
+Friends are stored locally and not synced to Sched.com.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		return cmd.Help()
 	},
@@ -20,7 +25,17 @@ var friendsCmd = &cobra.Command{
 var friendsAddCmd = &cobra.Command{
 	Use:   "add NICKNAME USERNAME",
 	Short: "Add a friend (nickname maps to Sched username)",
-	Args:  cobra.ExactArgs(2),
+	Long: `Add a friend by mapping a local nickname to their Sched username. The
+nickname is what you use with "sched-cli compare --with"; the username
+is their Sched.com profile identifier.
+
+If the nickname already exists, it will be updated with the new username.`,
+	Example: `  # Add a friend
+  sched-cli friends add alice alice.smith42
+
+  # Add another with a descriptive nickname
+  sched-cli friends add bob bob-from-platform-team`,
+	Args: cobra.ExactArgs(2),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		a, err := app.New(debug, jsonFlag, jsonPretty, "friends-add")
 		if err != nil {
@@ -43,7 +58,11 @@ var friendsAddCmd = &cobra.Command{
 var friendsRemoveCmd = &cobra.Command{
 	Use:   "remove NICKNAME",
 	Short: "Remove a friend by nickname",
-	Args:  cobra.ExactArgs(1),
+	Long: `Remove a friend from the local friend list by their nickname. Returns an
+error if the nickname does not exist.`,
+	Example: `  # Remove a friend
+  sched-cli friends remove alice`,
+	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		a, err := app.New(debug, jsonFlag, jsonPretty, "friends-remove")
 		if err != nil {
@@ -69,6 +88,13 @@ var friendsRemoveCmd = &cobra.Command{
 var friendsListCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List all friends",
+	Long: `List all friends in the local friend list, showing each nickname and the
+Sched username it maps to.`,
+	Example: `  # List all friends
+  sched-cli friends list
+
+  # Output as JSON
+  sched-cli friends list --json`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		a, err := app.New(debug, jsonFlag, jsonPretty, "friends-list")
 		if err != nil {

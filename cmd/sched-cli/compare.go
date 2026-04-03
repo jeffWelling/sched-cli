@@ -19,7 +19,28 @@ var (
 var compareCmd = &cobra.Command{
 	Use:   "compare",
 	Short: "Cross-schedule analysis",
-	Long:  "Compare your schedule with friends to find overlaps and gaps.",
+	Long: `Compare your schedule with one or more friends to find overlapping sessions
+and gaps. Overlaps are sessions where two or more people are attending. Gaps
+are sessions you flagged as interesting but have not scheduled yet.
+
+Friends are identified by nickname (see "sched-cli friends") or by raw
+Sched username with --with-user. Friend schedules are fetched from Sched
+and cached locally. By default both overlaps and gaps are shown; use
+--overlap or --gaps to filter.`,
+	Example: `  # Compare with a friend by nickname
+  sched-cli compare --with alice
+
+  # Compare with multiple friends
+  sched-cli compare --with alice --with bob
+
+  # Compare by raw Sched username
+  sched-cli compare --with-user alice.smith42
+
+  # Show only overlapping sessions
+  sched-cli compare --with alice --overlap
+
+  # Show only gaps (interested but not scheduled)
+  sched-cli compare --with alice --gaps`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		a, err := app.New(debug, jsonFlag, jsonPretty, "compare")
 		if err != nil {

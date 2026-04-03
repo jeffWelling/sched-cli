@@ -11,7 +11,18 @@ import (
 var syncCmd = &cobra.Command{
 	Use:   "sync",
 	Short: "Pull fresh data from Sched",
-	Long:  "Fetch all sessions and your personal schedule from the Sched API.",
+	Long: `Fetch all sessions and your personal schedule from the Sched API and store
+them in the local cache. This downloads the full iCal feed for the event
+and your personal schedule.
+
+Run this after "sched-cli config init" and periodically to pick up new
+sessions or schedule changes made on the Sched.com website. Requires
+authentication.`,
+	Example: `  # Pull fresh data from Sched
+  sched-cli sync
+
+  # Sync with debug output to see API calls
+  sched-cli sync --debug`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		a, err := app.New(debug, jsonFlag, jsonPretty, "sync")
 		if err != nil {
