@@ -129,8 +129,8 @@ func TestGet_IncludesAuthCookies(t *testing.T) {
 func TestGet_IncludesUserAgent(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ua := r.Header.Get("User-Agent")
-		if ua != "sched-cli/1.0" {
-			t.Errorf("User-Agent = %q, want %q", ua, "sched-cli/1.0")
+		if ua != "Mozilla/5.0 (compatible; sched-cli/1.0; +https://github.com/jeff/sched-cli)" {
+			t.Errorf("User-Agent = %q, want %q", ua, "Mozilla/5.0 (compatible; sched-cli/1.0; +https://github.com/jeff/sched-cli)")
 		}
 		w.WriteHeader(200)
 	}))
@@ -759,8 +759,8 @@ func TestAddToSchedule_VerifiesFullRequest(t *testing.T) {
 			t.Errorf("missing ucontext cookie: %v", err)
 		}
 		// Verify User-Agent
-		if r.Header.Get("User-Agent") != "sched-cli/1.0" {
-			t.Errorf("User-Agent = %q, want sched-cli/1.0", r.Header.Get("User-Agent"))
+		if r.Header.Get("User-Agent") != "Mozilla/5.0 (compatible; sched-cli/1.0; +https://github.com/jeff/sched-cli)" {
+			t.Errorf("User-Agent = %q, want Mozilla/5.0 (compatible; sched-cli/1.0; +https://github.com/jeff/sched-cli)", r.Header.Get("User-Agent"))
 		}
 		// Verify path and query
 		if r.URL.Path != "/event-set" {

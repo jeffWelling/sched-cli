@@ -215,6 +215,31 @@ func (s *Store) migrate() error {
 	return nil
 }
 
+// scanSession scans a session row, handling NULL short_id and JSON fields.
+func scanSession(scanner interface{ Scan(...interface{}) error }) (*Session, error) {
+	var sess Session
+	var shortID sql.NullString
+	var speakers, materials string
+	err := scanner.Scan(&sess.HexID, &shortID, &sess.Title, &sess.Description,
+		&sess.StartTime, &sess.EndTime, &sess.Location, &sess.Category,
+		&speakers, &materials, &sess.EventURL, &sess.FetchedAt)
+	if err != nil {
+		return nil, err
+	}
+	sess.ShortID = shortID.String
+	if speakers != "" {
+		if err := json.Unmarshal([]byte(speakers), &sess.Speakers); err != nil {
+			return nil, fmt.Errorf("unmarshaling speakers: %w", err)
+		}
+	}
+	if materials != "" {
+		if err := json.Unmarshal([]byte(materials), &sess.Materials); err != nil {
+			return nil, fmt.Errorf("unmarshaling materials: %w", err)
+		}
+	}
+	return &sess, nil
+}
+
 // UpsertSession inserts or updates a session.
 func (s *Store) UpsertSession(sess Session) error {
 	speakers := sess.Speakers
@@ -236,15 +261,21 @@ func (s *Store) UpsertSession(sess Session) error {
 		return fmt.Errorf("marshaling materials: %w", err)
 	}
 	materialsJSON := string(materialsBytes)
+	// Store empty short_id as NULL so UNIQUE constraint doesn't conflict
+	// (SQLite treats NULLs as distinct in UNIQUE constraints)
+	var shortID interface{}
+	if sess.ShortID != "" {
+		shortID = sess.ShortID
+	}
 	_, err = s.db.Exec(`
 		INSERT INTO sessions (hex_id, short_id, title, description, start_time, end_time, location, category, speakers, materials, event_url, fetched_at)
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT(hex_id) DO UPDATE SET
-			short_id=excluded.short_id, title=excluded.title, description=excluded.description,
+			short_id=COALESCE(excluded.short_id, sessions.short_id), title=excluded.title, description=excluded.description,
 			start_time=excluded.start_time, end_time=excluded.end_time, location=excluded.location,
 			category=excluded.category, speakers=excluded.speakers, materials=excluded.materials,
 			event_url=excluded.event_url, fetched_at=excluded.fetched_at`,
-		sess.HexID, sess.ShortID, sess.Title, sess.Description,
+		sess.HexID, shortID, sess.Title, sess.Description,
 		sess.StartTime, sess.EndTime, sess.Location, sess.Category,
 		speakersJSON, materialsJSON, sess.EventURL, sess.FetchedAt,
 	)
@@ -256,28 +287,11 @@ func (s *Store) GetSession(id string) (*Session, error) {
 	row := s.db.QueryRow(`
 		SELECT hex_id, short_id, title, description, start_time, end_time, location, category, speakers, materials, event_url, fetched_at
 		FROM sessions WHERE hex_id = ? OR short_id = ?`, id, id)
-	var sess Session
-	var speakers, materials string
-	err := row.Scan(&sess.HexID, &sess.ShortID, &sess.Title, &sess.Description,
-		&sess.StartTime, &sess.EndTime, &sess.Location, &sess.Category,
-		&speakers, &materials, &sess.EventURL, &sess.FetchedAt)
+	sess, err := scanSession(row)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
-	if err != nil {
-		return nil, err
-	}
-	if speakers != "" {
-		if err := json.Unmarshal([]byte(speakers), &sess.Speakers); err != nil {
-			return nil, fmt.Errorf("unmarshaling speakers: %w", err)
-		}
-	}
-	if materials != "" {
-		if err := json.Unmarshal([]byte(materials), &sess.Materials); err != nil {
-			return nil, fmt.Errorf("unmarshaling materials: %w", err)
-		}
-	}
-	return &sess, nil
+	return sess, err
 }
 
 // ListSessions returns sessions matching the given filters.
@@ -325,20 +339,11 @@ func (s *Store) ListSessions(filters SessionFilters) ([]Session, error) {
 
 	var sessions []Session
 	for rows.Next() {
-		var sess Session
-		var speakers, materials string
-		if err := rows.Scan(&sess.HexID, &sess.ShortID, &sess.Title, &sess.Description,
-			&sess.StartTime, &sess.EndTime, &sess.Location, &sess.Category,
-			&speakers, &materials, &sess.EventURL, &sess.FetchedAt); err != nil {
+		sess, err := scanSession(rows)
+		if err != nil {
 			return nil, err
 		}
-		if speakers != "" {
-			_ = json.Unmarshal([]byte(speakers), &sess.Speakers)
-		}
-		if materials != "" {
-			_ = json.Unmarshal([]byte(materials), &sess.Materials)
-		}
-		sessions = append(sessions, sess)
+		sessions = append(sessions, *sess)
 	}
 	return sessions, rows.Err()
 }
@@ -372,20 +377,11 @@ func (s *Store) GetSchedule() ([]Session, error) {
 
 	var sessions []Session
 	for rows.Next() {
-		var sess Session
-		var speakers, materials string
-		if err := rows.Scan(&sess.HexID, &sess.ShortID, &sess.Title, &sess.Description,
-			&sess.StartTime, &sess.EndTime, &sess.Location, &sess.Category,
-			&speakers, &materials, &sess.EventURL, &sess.FetchedAt); err != nil {
+		sess, err := scanSession(rows)
+		if err != nil {
 			return nil, err
 		}
-		if speakers != "" {
-			_ = json.Unmarshal([]byte(speakers), &sess.Speakers)
-		}
-		if materials != "" {
-			_ = json.Unmarshal([]byte(materials), &sess.Materials)
-		}
-		sessions = append(sessions, sess)
+		sessions = append(sessions, *sess)
 	}
 	return sessions, rows.Err()
 }
@@ -426,20 +422,11 @@ func (s *Store) ListInterests() ([]Session, error) {
 
 	var sessions []Session
 	for rows.Next() {
-		var sess Session
-		var speakers, materials string
-		if err := rows.Scan(&sess.HexID, &sess.ShortID, &sess.Title, &sess.Description,
-			&sess.StartTime, &sess.EndTime, &sess.Location, &sess.Category,
-			&speakers, &materials, &sess.EventURL, &sess.FetchedAt); err != nil {
+		sess, err := scanSession(rows)
+		if err != nil {
 			return nil, err
 		}
-		if speakers != "" {
-			_ = json.Unmarshal([]byte(speakers), &sess.Speakers)
-		}
-		if materials != "" {
-			_ = json.Unmarshal([]byte(materials), &sess.Materials)
-		}
-		sessions = append(sessions, sess)
+		sessions = append(sessions, *sess)
 	}
 	return sessions, rows.Err()
 }

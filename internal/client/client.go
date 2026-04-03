@@ -168,7 +168,9 @@ func (c *Client) doGet(path string) ([]byte, error, int) {
 	}
 	req.AddCookie(&http.Cookie{Name: "token", Value: c.cookies.Token})
 	req.AddCookie(&http.Cookie{Name: "ucontext", Value: c.cookies.UContext})
-	req.Header.Set("User-Agent", "sched-cli/1.0")
+	req.Header.Set("User-Agent", "Mozilla/5.0 (compatible; sched-cli/1.0; +https://github.com/jeff/sched-cli)")
+	req.Header.Set("Accept", "text/html,application/xhtml+xml,text/calendar,*/*")
+	req.Header.Set("Accept-Language", "en-US,en;q=0.9")
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
